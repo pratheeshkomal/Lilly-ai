@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.workers.dev; img-src 'self' data:">
+<title>Lilly – your friend</title>
+<style>
+:root{--bg1:#fde7f3;--bg2:#e3e6ff;--card:#ffffffd9;--ink:#2b2340;--accent:#8b5cf6;--me:#8b5cf6;--bot:#fff}
+@media (prefers-color-scheme:dark){:root{--bg1:#241a3a;--bg2:#141b3a;--card:#1f1a33d9;--ink:#f1ecff;--bot:#2c2548}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:system-ui,sans-serif;color:var(--ink);background:linear-gradient(160deg,var(--bg1),var(--bg2));display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{text-align:center;padding:8px 12px 0}
+header small{opacity:.7}
+#av{width:150px;height:180px;margin:0 auto;display:block;animation:float 4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-6px)}}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+#mouthO{display:none}
+.talk #mouthO{display:block;animation:mo .25s infinite alternate}
+.talk #mouthS{display:none}
+@keyframes mo{to{transform:scaleY(.4)}}
+#mouthO{transform-box:fill-box;transform-origin:center}
+nav{display:flex;gap:8px;padding:6px 12px}
+nav button{flex:1;border:0;border-radius:12px;padding:8px;background:var(--card);color:var(--ink);font-size:15px}
+nav button.on{background:var(--accent);color:#fff}
+main{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 12px}
+#chat,#tasks{flex:1;overflow-y:auto;padding:6px 0}
+#tasks{display:none}
+.m{max-width:85%;padding:9px 13px;margin:6px 0;border-radius:16px;background:var(--bot);line-height:1.4;overflow-wrap:anywhere}
+.m.me{margin-left:auto;background:var(--me);color:#fff}
+.row{display:flex;gap:6px;padding:8px 0}
+input{flex:1;min-width:0;border:0;border-radius:14px;padding:12px;font-size:16px;background:var(--card);color:var(--ink)}
+.row button{border:0;border-radius:14px;padding:0 14px;background:var(--accent);color:#fff;font-size:18px}
+.t{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:12px;padding:10px;margin:6px 0}
+.t span{flex:1}.t.done span{text-decoration:line-through;opacity:.5}
+.t button{border:0;background:none;font-size:18px;color:var(--ink)}
+#note{font-size:12px;opacity:.65;text-align:center;padding:2px 12px 6px}
+</style>
+</head>
+<body>
+<header>
+<svg id="av" viewBox="0 0 200 240" aria-label="Lilly avatar">
+<path d="M30 120c-10 60 0 110 25 120h90c25-10 35-60 25-120z" fill="#6d4aa8"/>
+<rect x="85" y="165" width="30" height="35" fill="#ffe0d0"/>
+<path d="M50 215q50 30 100 0l-10-25q-40 20-80 0z" fill="#ff8fb8"/>
+<ellipse cx="100" cy="105" rx="62" ry="68" fill="#ffe8dc"/>
+<path d="M36 110c-8-70 40-92 64-92s72 22 64 92c-8-28-20-46-34-52-20 22-60 28-94 6-4 12-4 28 0 46z" fill="#7d57c2"/>
+<path d="M60 70q40 24 80-6q-6 30-40 28q-34 4-40-22z" fill="#7d57c2"/>
+<g class="eye"><ellipse cx="72" cy="112" rx="13" ry="17" fill="#3b2a6b"/><ellipse cx="72" cy="112" rx="8" ry="11" fill="#6a8cff"/><circle cx="68" cy="105" r="5" fill="#fff"/></g>
+<g class="eye"><ellipse cx="128" cy="112" rx="13" ry="17" fill="#3b2a6b"/><ellipse cx="128" cy="112" rx="8" ry="11" fill="#6a8cff"/><circle cx="124" cy="105" r="5" fill="#fff"/></g>
+<ellipse cx="58" cy="138" rx="10" ry="6" fill="#ffb3c6" opacity=".7"/><ellipse cx="142" cy="138" rx="10" ry="6" fill="#ffb3c6" opacity=".7"/>
+<path id="mouthS" d="M88 148q12 12 24 0" stroke="#c0506f" stroke-width="3" fill="none" stroke-linecap="round"/>
+<ellipse id="mouthO" cx="100" cy="150" rx="8" ry="8" fill="#c0506f"/>
+</svg>
+<small>Lilly · an AI friend, not a human</small>
+</header>
+<nav><button id="bc" class="on">Chat</button><button id="bt">Tasks</button></nav>
+<main>
+<div id="chat" aria-live="polite"></div>
+<div id="tasks">
+<div class="row"><input id="tt" placeholder="New task…" maxlength="80"><input id="tm" type="time" style="flex:0 0 110px"><button id="ta">+</button></div>
+<div id="tl"></div>
+</div>
+<div class="row" id="inrow"><input id="in" placeholder="Talk to Lilly…" maxlength="500" autocomplete="off"><button id="mic" aria-label="Speak">🎤</button><button id="go" aria-label="Send">➤</button></div>
+</main>
+<div id="note">Lilly is an AI and can make mistakes. If you’re in danger, contact local emergency services.</div>
+<script>
+"use strict";
+// ====== SET THIS after you deploy the Worker ======
+const WORKER_URL = "";
+// ==================================================
+const $=id=>document.getElementById(id);
+const av=$("av"),chat=$("chat");
+let msgs=[],tasks=[];
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+tasks=load("lilly_tasks",[]);
+msgs=load("lilly_msgs",[]).slice(-20);
+
+function add(text,me){const d=document.createElement("div");d.className="m"+(me?" me":"");d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+function speak(t){
+  try{
+    if(!("speechSynthesis" in window))return;
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(t);u.pitch=1.3;u.rate=1;
+    const v=speechSynthesis.getVoices().find(x=>/female|zira|samantha|google.*(us|uk)/i.test(x.name));if(v)u.voice=v;
+    u.onstart=()=>av.classList.add("talk");u.onend=u.onerror=()=>av.classList.remove("talk");
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function say(t){add(t,false);msgs.push({role:"assistant",content:t});msgs=msgs.slice(-20);save("lilly_msgs",msgs);speak(t)}
+
+const CRISIS=/(kill myself|suicide|end my life|want to die|self[- ]?harm|hurt myself|no reason to live)/i;
+const CRISIS_MSG="I’m really glad you told me, and I’m worried about you. Please reach out to someone who can help right now: call your local emergency number, or a crisis line. In India you can call Tele-MANAS at 14416. If you can, tell a person near you too. I’m here and I’m not going anywhere while you do.";
+
+for(const m of msgs)add(m.content,m.role==="user");
+if(!msgs.length)say("Hi, I’m Lilly 💜 I’m an AI, here to chat, cheer you up and help you stay on track. How are you feeling today?");
+
+async function send(){
+  const el=$("in"),t=el.value.trim();if(!t)return;el.value="";
+  add(t,true);msgs.push({role:"user",content:t});msgs=msgs.slice(-20);
+  if(CRISIS.test(t)){say(CRISIS_MSG);return}
+  if(!WORKER_URL){say("I’m not connected to my brain yet. Set WORKER_URL in index.html to switch me on 💜");return}
+  const typing=document.createElement("div");typing.className="m";typing.textContent="…";chat.appendChild(typing);chat.scrollTop=chat.scrollHeight;
+  try{
+    const open=tasks.filter(x=>!x.done).map(x=>x.text+(x.time?" at "+x.time:""));
+    const r=await fetch(WORKER_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,tasks:open})});
+    if(!r.ok)throw 0;
+    const j=await r.json();typing.remove();say(String(j.reply||"I’m here 💜").slice(0,1500));
+  }catch(e){typing.remove();add("Sorry, I couldn’t reach my brain just now. Try again in a moment.",false)}
+}
+$("go").onclick=send;$("in").onkeydown=e=>{if(e.key==="Enter")send()};
+
+// voice input
+$("mic").onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){add("Voice input isn’t supported in this browser.",false);return}
+  const r=new SR();r.lang="en-US";r.onresult=e=>{$("in").value=e.results[0][0].transcript;send()};r.start();
+};
+
+// tabs
+function tab(t){$("chat").style.display=t==="c"?"block":"none";$("tasks").style.display=t==="t"?"block":"none";$("inrow").style.display=t==="c"?"flex":"none";$("bc").className=t==="c"?"on":"";$("bt").className=t==="t"?"on":""}
+$("bc").onclick=()=>tab("c");$("bt").onclick=()=>tab("t");
+
+// tasks
+function esc(s){return s}
+function render(){
+  const l=$("tl");l.textContent="";
+  tasks.forEach((x,i)=>{
+    const d=document.createElement("div");d.className="t"+(x.done?" done":"");
+    const c=document.createElement("button");c.textContent=x.done?"✅":"⬜";c.onclick=()=>{x.done=!x.done;save("lilly_tasks",tasks);render()};
+    const s=document.createElement("span");s.textContent=x.text+(x.time?" · "+x.time:"");
+    const del=document.createElement("button");del.textContent="🗑";del.onclick=()=>{tasks.splice(i,1);save("lilly_tasks",tasks);render()};
+    d.append(c,s,del);l.appendChild(d);
+  });
+}
+$("ta").onclick=()=>{
+  const t=$("tt").value.trim();if(!t)return;
+  tasks.push({text:t,time:$("tm").value,done:false,nagged:""});
+  $("tt").value="";save("lilly_tasks",tasks);render();
+  try{if("Notification" in window&&Notification.permission==="default")Notification.requestPermission()}catch(e){}
+};
+render();
+
+// reminders: check every 30s
+setInterval(()=>{
+  const n=new Date(),hm=String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"),day=n.toDateString();
+  tasks.forEach(x=>{
+    if(!x.done&&x.time&&x.time<=hm&&x.nagged!==day){
+      x.nagged=day;save("lilly_tasks",tasks);
+      const t="Hey, you haven’t finished “"+x.text+"” yet. You’ve got this 💪";
+      say(t);
+      try{if("Notification" in window&&Notification.permission==="granted")new Notification("Lilly",{body:t})}catch(e){}
+    }
+  });
+},30000);
+</script>
+</body>
+</html>
